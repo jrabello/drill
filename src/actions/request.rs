@@ -271,8 +271,9 @@ impl Runnable for Request {
             headers.insert(header.to_string(), json!(value.to_str().unwrap()));
           });
 
+          println!("response:[{:?}]", response);
           let data = response.text().await.unwrap();
-
+          println!("body:[{}]", data);
           let body: Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
 
           let assigned = AssignedRequest {
