@@ -33,6 +33,7 @@ async fn run_iterations(benchmark: Arc<Benchmark>, config: Arc<Config>, concurre
 
     context.insert("iteration".to_string(), json!(iteration.to_string()));
     context.insert("base".to_string(), json!(config.base.to_string()));
+    context.insert("concurrency".to_string(), json!(concurrency.to_string()));
 
     for item in benchmark.iter() {
       item.execute(&mut context, &mut reports, &mut pool, &config).await;
@@ -84,6 +85,8 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
       for index in 0..config.concurrency {
         let list_clone = list_arc.clone();
         let config_clone = config.clone();
+        // println!("{:?}", list_clone);
+        // dbg!(list_clone);
         children.push(tokio::spawn(async move { run_iterations(list_clone, config_clone, index).await }));
       }
       let list_reports: Vec<Vec<Report>> = futures::future::join_all(children).await.into_iter().map(|x| x.unwrap()).collect();

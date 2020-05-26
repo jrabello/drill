@@ -1,9 +1,9 @@
 ---
 
-concurrency: 20
+concurrency: 1
 base: 'http://localhost:9000'
-iterations: 3
-rampup: 2
+iterations: 10
+# rampup: 2
 
 plan:
   - name: Include comments
@@ -78,7 +78,7 @@ plan:
       file_name: ./fixtures/users.csv
       quote_char: "\'"
 
-  - name: POST some crafted JSONs stored in CSV
+  - name: POST some crafted JSONs stored in CSV {{ iteration }} {{ item.txn }}
     request:
       url: /api/transactions
       method: POST
@@ -97,4 +97,4 @@ plan:
     request:
       url: /api/users
       method: POST
-      body: foo=bar&arg={{ bar }}
+      body: foo=bar&arg{{ bar }}

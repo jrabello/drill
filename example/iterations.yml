@@ -2,10 +2,10 @@
 
 concurrency: 3
 base: 'http://localhost:9000'
-iterations: 2
+iterations: 1
 
 plan:
-  - name: "Fetch 1 - Iteration: {{ iteration }}"
+  - name: "Fetch 1 - Iteration:[{{ iteration }}] Base:[{{ base }}]"
     request:
       url: /api/users.json
 

@@ -129,12 +129,10 @@ impl Request {
       interpolated_url
     };
 
+    let interpolated_body;
     let url = Url::parse(&interpolated_base_url).expect("Invalid url!");
     let domain = format!("{}://{}:{}", url.scheme(), url.host_str().unwrap(), url.port().unwrap_or(0)); // Unique domain key for keep-alive
-
     let client = pool.entry(domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap());
-
-    let interpolated_body;
 
     // Method
     let method = match self.method.to_uppercase().as_ref() {
@@ -148,12 +146,11 @@ impl Request {
     };
 
     // Resolve the body
-    let request = if let Some(body) = self.body.as_ref() {
+    let (req_body, request) = if let Some(body) = self.body.as_ref() {
       interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(body, !config.relaxed_interpolations);
-
-      client.request(method, interpolated_base_url.as_str()).body(interpolated_body)
+      (interpolated_body.to_owned(), client.request(method, interpolated_base_url.as_str()).body(interpolated_body))
     } else {
-      client.request(method, interpolated_base_url.as_str())
+      (interpolated_base_url.as_str().to_owned(), client.request(method, interpolated_base_url.as_str()))
     };
 
     // Headers
@@ -174,6 +171,8 @@ impl Request {
     }
 
     let begin = Instant::now();
+    // let crequest = request.cloned();
+    // let cheaders = headers.clone();
     let response_result = request.headers(headers).timeout(Duration::from_secs(10)).send().await;
     let duration_ms = begin.elapsed().as_secs_f64() * 1000.0;
 
@@ -196,6 +195,11 @@ impl Request {
           };
 
           println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
+          // request:[{:?}] headers:[{:?}]
+          println!("request_body: {:?}", 
+            //crequest, 
+            //cheaders, 
+            req_body);
         }
 
         (Some(response), duration_ms)
@@ -273,7 +277,7 @@ impl Runnable for Request {
 
           println!("response:[{:?}]", response);
           let data = response.text().await.unwrap();
-          println!("body:[{}]", data);
+          println!("response_body:[{}]", data);
           let body: Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
 
           let assigned = AssignedRequest {

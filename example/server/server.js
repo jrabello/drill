@@ -8,6 +8,7 @@ const session = require('express-session');
 const app = express();
 const delay = process.env.DELAY_MS || 0;
 const output = process.env.OUTPUT;
+let cadastros = [] 
 
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
@@ -70,9 +71,23 @@ app.get('/api/tokens/:id', logger_handler('T'));
 app.get('/api/users/:id', logger_handler('I'));
 app.get('/api/users/at/:floor/:room', logger_handler('R'));
 app.get('/api/account', logger_handler('A'));
-
 app.post('/api/users', randomFailedHandler);
 app.post('/api/transactions', transactionsHander);
+
+// cadastros
+app.post('/api/cadastros', (req, res) => {
+  cadastros = req.body
+  res.status(201).json({ status: 'ok'});
+});
+app.get('/api/cadastros.json', (req, res) => {
+  res.status(200).json(cadastros);
+});
+app.get('/api/cadastros/:id', (req, res) => {
+  const params = req.params
+  console.log({params});
+  res.json(cadastros[params.id])
+});
+
 
 // Sessions test plan
 app.get('/login', function(req, res){
