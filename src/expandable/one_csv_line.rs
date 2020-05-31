@@ -1,12 +1,93 @@
 use std::path::Path;
+use std::collections::HashMap;
+
+use async_trait::async_trait;
 use yaml_rust::Yaml;
 
-use crate::actions::{Request, Runnable};
+use crate::actions::{extract_optional, Request, Runnable};
+use crate::benchmark::{Context, Pool, Reports};
+use crate::config::Config;
 use crate::reader;
 
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
+
+#[derive(Clone)]
+pub struct OneCsvLine {
+  pub idx: usize,
+  pub csv_rows_size: usize,
+  pub csv_line: Option<Yaml>,
+  pub assigned_var_key: Option<String>,
+}
+
+impl OneCsvLine {
+  pub fn new(idx: usize, csv_rows_size: usize, item: &Yaml, _with_item: Option<Yaml>) -> OneCsvLine {
+    let assign = extract_optional(item, "assign");
+
+    OneCsvLine {
+      idx,
+      csv_rows_size,
+      assigned_var_key: assign.map(str::to_string),
+      csv_line: _with_item,
+    }
+  }
+}
+
+#[async_trait]
+impl Runnable for OneCsvLine {
+  async fn execute(&self, context: &mut Context, _reports: &mut Reports, _pool: &mut Pool, _config: &Config) {
+    if let Some(ref assigned_key) = self.assigned_var_key {
+      if self.csv_line.is_some() {
+        let json = yaml_to_json(self.csv_line.clone().unwrap());
+        let wut = json["txn"].clone();
+        let concurrency = context.get(&"concurrency".to_owned());
+
+        if let Some(conc) = concurrency {
+          let conc_num = conc.as_str().unwrap().parse::<usize>().unwrap();
+          if conc_num > self.csv_rows_size {
+            panic!("Too many vusers:{} for data_size: {}", conc_num, self.csv_rows_size);
+          }
+
+          if conc_num == self.idx {
+            context.insert(assigned_key.to_owned(), wut);
+          }
+        }
+      }
+    }
+  }
+}
+
+pub fn yaml_to_json(data: Yaml) -> Value {
+  if let Some(b) = data.as_bool() {
+    json!(b)
+  } else if let Some(i) = data.as_i64() {
+    json!(i)
+  } else if let Some(s) = data.as_str() {
+    json!(s)
+  } else if let Some(h) = data.as_hash() {
+    let mut map = Map::new();
+
+    for (key, value) in h.iter() {
+      map.entry(key.as_str().unwrap()).or_insert(yaml_to_json(value.clone()));
+    }
+
+    json!(map)
+  } else if let Some(v) = data.as_vec() {
+    let mut array = Vec::new();
+
+    for value in v.iter() {
+      array.push(yaml_to_json(value.clone()));
+    }
+
+    json!(array)
+  } else {
+    panic!("Unknown Yaml node")
+  }
+}
+
 pub fn is_that_you(item: &Yaml) -> bool {
-  println!("is_that_you: {:?}", item);
-  // item["request"].as_hash().is_some() && 
+  // println!("is_that_you with_one_item_from_csv: {:?}", item);
+  // item["request"].as_hash().is_some() &&
   item["with_one_item_from_csv"].as_str().is_some() || item["with_one_item_from_csv"].as_hash().is_some()
 }
 
@@ -27,14 +108,15 @@ pub fn expand(parent_path: &str, item: &Yaml, list: &mut Vec<Box<(dyn Runnable +
   let final_path = with_items_filepath.to_str().unwrap();
 
   let with_items_file = reader::read_csv_file_as_yml(final_path, quote_char);
-  let with_item = with_items_file.get(csv_row as usize);
-  let unwraped = with_item.unwrap().to_owned();
-  // dbg!(with_items_file.clone());
-  // println!("{:?}", with_items_file);
-
-  // for with_item in with_items_file {
-    list.push(Box::new(Request::new(item, Some(unwraped))));
-  // }
+  // let with_item = with_items_file.get(csv_row as usize);
+  // let csv_line = with_item.unwrap().to_owned();
+  // dbg!(item_unwraped);
+  
+  for (i, with_item) in with_items_file.iter().enumerate() {
+    // println!("quote_char: {} item: {:?} csv_line: {:?}", quote_char, item, csv_line);
+    let csv_line = with_item.to_owned();
+    list.push(Box::new(OneCsvLine::new(i, with_items_file.len(),item, Some(csv_line))));
+  }
 }
 
 #[cfg(test)]

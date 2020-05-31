@@ -102,7 +102,7 @@ impl Request {
     let contains_same_sku_in_some_request = contains_first || contains_second;
 
     if !contains_same_sku_in_some_request {
-      panic!("\t\tresponses differ: {} {}",req_body,response_body);
+      panic!("\t\tresponses differ: {} {}", req_body, response_body);
     }
   }
 
@@ -206,22 +206,18 @@ impl Request {
             status.to_string().yellow()
           };
 
-          println!("{:width$} {} {} {}", interpolated_name.green(), 
-            interpolated_base_url.blue().bold(), 
-            status_text, 
-            Request::format_time(duration_ms, config.nanosec).cyan(), 
-            width = 25);
+          println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
           // request:[{:?}] headers:[{:?}]
           // if let Some(ref key) = self.assign {
-            // let decoder = response.body;
-            // decoder
-            // assert_both(response, req_body);
-            // if key.ends_with("_dbg") {
-            //   println!("request_body: {:?}", 
-            //     //crequest, 
-            //     //cheaders, 
-            //     req_body);
-            // }
+          // let decoder = response.body;
+          // decoder
+          // assert_both(response, req_body);
+          // if key.ends_with("_dbg") {
+          //   println!("request_body: {:?}",
+          //     //crequest,
+          //     //cheaders,
+          //     req_body);
+          // }
           // }
         }
 
@@ -231,7 +227,7 @@ impl Request {
   }
 }
 
-fn yaml_to_json(data: Yaml) -> Value {
+pub fn yaml_to_json(data: Yaml) -> Value {
   if let Some(b) = data.as_bool() {
     json!(b)
   } else if let Some(i) = data.as_i64() {
@@ -262,7 +258,6 @@ fn yaml_to_json(data: Yaml) -> Value {
 #[async_trait]
 impl Runnable for Request {
   async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &mut Pool, config: &Config) {
-
     if self.with_item.is_some() {
       context.insert("item".to_string(), yaml_to_json(self.with_item.clone().unwrap()));
     }
@@ -299,7 +294,7 @@ impl Runnable for Request {
             headers.insert(header.to_string(), json!(value.to_str().unwrap()));
           });
 
-          if key.ends_with("_dbg")  {
+          if key.ends_with("_dbg") {
             println!("request_body: [{:?}]", req_body);
             println!("response: [{:?}]", response);
           }

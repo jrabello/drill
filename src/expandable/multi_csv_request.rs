@@ -24,7 +24,7 @@ pub fn expand(parent_path: &str, item: &Yaml, list: &mut Vec<Box<(dyn Runnable +
   let final_path = with_items_filepath.to_str().unwrap();
 
   let with_items_file = reader::read_csv_file_as_yml(final_path, quote_char);
-  dbg!(with_items_file.clone());
+  // dbg!(with_items_file.clone());
   // println!("{:?}", with_items_file);
 
   for with_item in with_items_file {
