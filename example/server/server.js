@@ -10,8 +10,8 @@ const delay = process.env.DELAY_MS || 0;
 const output = process.env.OUTPUT;
 let cadastros = [] 
 
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: true }))
+app.use(bodyParser.json({limit: '200mb'}))
+app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }))
 app.use(cookieParser());
 app.use(session({
   secret: "driiilll!",
@@ -84,7 +84,7 @@ app.get('/api/cadastros.json', (req, res) => {
 });
 app.get('/api/cadastros/:id', (req, res) => {
   const params = req.params
-  console.log({params});
+  // console.log({params});
   res.json(cadastros[params.id])
 });
 

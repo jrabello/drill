@@ -94,7 +94,19 @@ impl Request {
     }
   }
 
-  async fn send_request(&self, context: &mut Context, pool: &mut Pool, config: &Config) -> (Option<Response>, f64) {
+  fn make_assertions(&self, req_body: String, response_body: &String) {
+    let first_request_sku = "LGCV7011WS42";
+    let second_request_sku = "UXX512FABR569B";
+    let contains_first = req_body.contains(first_request_sku) && response_body.contains(first_request_sku);
+    let contains_second = req_body.contains(second_request_sku) && response_body.contains(second_request_sku);
+    let contains_same_sku_in_some_request = contains_first || contains_second;
+
+    if !contains_same_sku_in_some_request {
+      panic!("\t\tresponses differ: {} {}",req_body,response_body);
+    }
+  }
+
+  async fn send_request(&self, context: &mut Context, pool: &mut Pool, config: &Config) -> (Option<Response>, f64, String) {
     let mut uninterpolator = None;
 
     // Resolve the name
@@ -181,7 +193,7 @@ impl Request {
         if !config.quiet {
           println!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e);
         }
-        (None, duration_ms)
+        (None, duration_ms, req_body)
       }
       Ok(response) => {
         if !config.quiet {
@@ -194,15 +206,26 @@ impl Request {
             status.to_string().yellow()
           };
 
-          println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
+          println!("{:width$} {} {} {}", interpolated_name.green(), 
+            interpolated_base_url.blue().bold(), 
+            status_text, 
+            Request::format_time(duration_ms, config.nanosec).cyan(), 
+            width = 25);
           // request:[{:?}] headers:[{:?}]
-          println!("request_body: {:?}", 
-            //crequest, 
-            //cheaders, 
-            req_body);
+          // if let Some(ref key) = self.assign {
+            // let decoder = response.body;
+            // decoder
+            // assert_both(response, req_body);
+            // if key.ends_with("_dbg") {
+            //   println!("request_body: {:?}", 
+            //     //crequest, 
+            //     //cheaders, 
+            //     req_body);
+            // }
+          // }
         }
 
-        (Some(response), duration_ms)
+        (Some(response), duration_ms, req_body)
       }
     }
   }
@@ -239,11 +262,12 @@ fn yaml_to_json(data: Yaml) -> Value {
 #[async_trait]
 impl Runnable for Request {
   async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &mut Pool, config: &Config) {
+
     if self.with_item.is_some() {
       context.insert("item".to_string(), yaml_to_json(self.with_item.clone().unwrap()));
     }
 
-    let (res, duration_ms) = self.send_request(context, pool, config).await;
+    let (res, duration_ms, req_body) = self.send_request(context, pool, config).await;
 
     match res {
       None => reports.push(Report {
@@ -275,16 +299,23 @@ impl Runnable for Request {
             headers.insert(header.to_string(), json!(value.to_str().unwrap()));
           });
 
-          println!("response:[{:?}]", response);
-          let data = response.text().await.unwrap();
-          println!("response_body:[{}]", data);
-          let body: Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
+          if key.ends_with("_dbg")  {
+            println!("request_body: [{:?}]", req_body);
+            println!("response: [{:?}]", response);
+          }
 
+          let data = response.text().await.unwrap();
+
+          if key.ends_with("_dbg") {
+            println!("\tresponse_body: [{}]", data);
+          }
+          // self.make_assertions(req_body, &data);
+
+          let body: Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
           let assigned = AssignedRequest {
             body,
             headers,
           };
-
           let value = serde_json::to_value(assigned).unwrap();
 
           context.insert(key.to_owned(), value);
