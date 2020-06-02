@@ -102,7 +102,9 @@ impl Request {
     let contains_same_sku_in_some_request = contains_first || contains_second;
 
     if !contains_same_sku_in_some_request {
-      panic!("\t\tresponses differ: {} {}", req_body, response_body);
+      println!("\t\tresponses differ: {} {}", req_body, response_body);
+      use std::process;
+      process::exit(-1);
     }
   }
 

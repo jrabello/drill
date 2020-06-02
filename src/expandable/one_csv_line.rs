@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::collections::HashMap;
+use std::{process, collections::HashMap};
 
 use async_trait::async_trait;
 use yaml_rust::Yaml;
@@ -36,23 +36,30 @@ impl OneCsvLine {
 #[async_trait]
 impl Runnable for OneCsvLine {
   async fn execute(&self, context: &mut Context, _reports: &mut Reports, _pool: &mut Pool, _config: &Config) {
+    if self.csv_line.is_none() {
+      return;
+    }
+
     if let Some(ref assigned_key) = self.assigned_var_key {
-      if self.csv_line.is_some() {
         let json = yaml_to_json(self.csv_line.clone().unwrap());
-        let wut = json["txn"].clone();
+        let json_value = json["txn"].clone();
         let concurrency = context.get(&"concurrency".to_owned());
+        // println!("{:?}", json_value);
 
         if let Some(conc) = concurrency {
           let conc_num = conc.as_str().unwrap().parse::<usize>().unwrap();
           if conc_num > self.csv_rows_size {
-            panic!("Too many vusers:{} for data_size: {}", conc_num, self.csv_rows_size);
+            println!("Too many vusers:{} for data_size: {}", conc_num, self.csv_rows_size);
+            process::exit(1);
           }
 
           if conc_num == self.idx {
-            context.insert(assigned_key.to_owned(), wut);
+            let body: Value = serde_json::from_str(json_value.as_str().unwrap()).unwrap_or(serde_json::Value::Null);
+            println!("body: {:?}", body);
+
+            context.insert(assigned_key.to_owned(), body);
           }
         }
-      }
     }
   }
 }
