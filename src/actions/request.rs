@@ -20,7 +20,7 @@ use crate::interpolator;
 
 use crate::actions::{Report, Runnable};
 
-static USER_AGENT: &str = "drill";
+static USER_AGENT: &str = "drill-115dc3606fbf8691fb69f2ae";
 
 #[derive(Clone)]
 pub struct Request {
