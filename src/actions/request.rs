@@ -56,7 +56,7 @@ impl Request {
       "GET".to_string()
     };
 
-    let body = if method == "POST" {
+    let body = if method == "POST" || method == "PUT" {
       Some(extract(&item["request"], "body"))
     } else {
       None
@@ -108,7 +108,7 @@ impl Request {
     }
   }
 
-  async fn send_request(&self, context: &mut Context, pool: &mut Pool, config: &Config) -> (Option<Response>, f64, String) {
+  async fn send_request(&self, context: &mut Context, pool: &mut Pool, config: &Config) -> (Option<Response>, f64, String, String, String) {
     let mut uninterpolator = None;
 
     // Resolve the name
@@ -164,13 +164,12 @@ impl Request {
       interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(body, !config.relaxed_interpolations);
       (interpolated_body.to_owned(), client.request(method, interpolated_base_url.as_str()).body(interpolated_body))
     } else {
-      (interpolated_base_url.as_str().to_owned(), client.request(method, interpolated_base_url.as_str()))
+      ("".to_owned(), client.request(method, interpolated_base_url.as_str()))
     };
 
     // Headers
     let mut headers = HeaderMap::new();
     headers.insert(header::USER_AGENT, HeaderValue::from_str(USER_AGENT).unwrap());
-
     if let Some(cookies) = context.get("cookies") {
       let cookies: Map<String, Value> = serde_json::from_value(cookies.clone()).unwrap();
       let cookie = cookies.iter().map(|(key, value)| format!("{}={}", key, value)).collect::<Vec<_>>().join(";");
@@ -187,6 +186,9 @@ impl Request {
     let begin = Instant::now();
     // let crequest = request.cloned();
     // let cheaders = headers.clone();
+    // println!("request: {:?} \n\theaders:{:?}", request, headers);
+    let req_copy = format!("{:?}", request);
+    let headers_copy = format!("{:?}", headers);
     let response_result = request.headers(headers).timeout(Duration::from_secs(60)).send().await;
     let duration_ms = begin.elapsed().as_secs_f64() * 1000.0;
 
@@ -195,7 +197,7 @@ impl Request {
         if !config.quiet {
           println!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e);
         }
-        (None, duration_ms, req_body)
+        (None, duration_ms, req_body, req_copy, headers_copy)
       }
       Ok(response) => {
         if !config.quiet {
@@ -223,7 +225,7 @@ impl Request {
           // }
         }
 
-        (Some(response), duration_ms, req_body)
+        (Some(response), duration_ms, req_body, req_copy, headers_copy)
       }
     }
   }
@@ -264,7 +266,7 @@ impl Runnable for Request {
       context.insert("item".to_string(), yaml_to_json(self.with_item.clone().unwrap()));
     }
 
-    let (res, duration_ms, req_body) = self.send_request(context, pool, config).await;
+    let (res, duration_ms, req_body, req, req_headers) = self.send_request(context, pool, config).await;
 
     match res {
       None => reports.push(Report {
@@ -297,7 +299,8 @@ impl Runnable for Request {
           });
 
           if key.ends_with("_dbg") {
-            println!("request_body: [{:?}]", req_body);
+            println!("request: {:?} \n\theaders:{:?}", req, req_headers);
+            println!("\trequest_body: [{:?}]", req_body);
             println!("response: [{:?}]", response);
           }
 

@@ -55,7 +55,7 @@ impl Runnable for OneCsvLine {
 
           if conc_num == self.idx {
             let body: Value = serde_json::from_str(json_value.as_str().unwrap()).unwrap_or(serde_json::Value::Null);
-            println!("body: {:?}", body);
+            // println!("body: {:?}", body);
 
             context.insert(assigned_key.to_owned(), body);
           }
